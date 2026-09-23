@@ -6,7 +6,7 @@ from auditlog import get_logentry_model
 from auditlog.context import auditlog_disabled
 from auditlog.diff import model_instance_diff
 from auditlog.models import _get_manager_from_settings
-from auditlog.signals import post_log, pre_log
+from auditlog.signals import post_log, post_m2m_log, pre_log, pre_m2m_log
 
 
 def check_disable(signal_handler):
@@ -163,6 +163,46 @@ def _create_log_entry(
             raise error
 
 
+def _create_m2m_log_entry(instance, sender, changed_queryset, operation, field_name):
+    action = get_logentry_model().Action.UPDATE
+
+    pre_log_results = pre_m2m_log.send(
+        sender,
+        instance=instance,
+        action=action,
+        field_name=field_name,
+        operation=operation,
+    )
+    if any(item[1] is False for item in pre_log_results):
+        return
+
+    LogEntry = get_logentry_model()
+    error = None
+    log_entry = None
+    try:
+        log_entry = LogEntry.objects.log_m2m_changes(
+            changed_queryset, instance, operation, field_name
+        )
+    except BaseException as e:
+        error = e
+    finally:
+        if log_entry or error:
+            post_m2m_log.send(
+                sender,
+                instance=instance,
+                action=action,
+                field_name=field_name,
+                operation=operation,
+                error=error,
+                pre_log_results=pre_log_results,
+                changes=log_entry.changes if log_entry else None,
+                log_entry=log_entry,
+                log_created=log_entry is not None,
+            )
+        if error:
+            raise error
+
+
 def make_log_m2m_changes(field_name):
     """Return a handler for m2m_changed with field_name enclosed."""
 
@@ -171,8 +211,9 @@ def make_log_m2m_changes(field_name):
         """Handle m2m_changed and call LogEntry.objects.log_m2m_changes as needed."""
         if action not in ["post_add", "post_clear", "post_remove"]:
             return
-        LogEntry = get_logentry_model()
 
+        instance = kwargs["instance"]
+        sender = type(instance)
         model_manager = _get_manager_from_settings(kwargs["model"])
 
         if action == "post_clear":
@@ -181,18 +222,10 @@ def make_log_m2m_changes(field_name):
             changed_queryset = model_manager.filter(pk__in=kwargs["pk_set"])
 
         if action in ["post_add"]:
-            LogEntry.objects.log_m2m_changes(
-                changed_queryset,
-                kwargs["instance"],
-                "add",
-                field_name,
-            )
+            _create_m2m_log_entry(instance, sender, changed_queryset, "add", field_name)
         elif action in ["post_remove", "post_clear"]:
-            LogEntry.objects.log_m2m_changes(
-                changed_queryset,
-                kwargs["instance"],
-                "delete",
-                field_name,
+            _create_m2m_log_entry(
+                instance, sender, changed_queryset, "delete", field_name
             )
 
     return log_m2m_changes
