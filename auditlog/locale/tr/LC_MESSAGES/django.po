@@ -1,0 +1,197 @@
+# Django Auditlog Turkish Translation
+# Copyright (C) 2026 Django Auditlog Contributors
+# This file is distributed under the same license as the django-auditlog package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: django-auditlog\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-24 23:14+0300\n"
+"PO-Revision-Date: 2026-05-24 23:30+0300\n"
+"Last-Translator: Cihad GUNDOGDU <cihadgundogdu@gmail.com>\n"
+"Language-Team: Turkish <tr@li.org>\n"
+"Language: tr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: auditlog/admin.py:38 auditlog/mixins.py:63 auditlog/mixins.py:75
+msgid "Changes"
+msgstr "Değişiklikler"
+
+#: auditlog/apps.py:7 auditlog/mixins.py:171
+#: auditlog/templates/auditlog/object_history.html:138
+msgid "Audit log"
+msgstr "Denetim günlüğü"
+
+#: auditlog/filters.py:6
+msgid "Resource Type"
+msgstr "Kaynak Türü"
+
+#: auditlog/filters.py:21 auditlog/models.py:374
+msgid "Correlation ID"
+msgstr "Korelasyon Kimliği"
+
+#: auditlog/mixins.py:28
+msgid "Click to filter by records with this correlation id"
+msgstr "Bu korelasyon kimliğine sahip kayıtları filtrelemek için tıklayın"
+
+#: auditlog/mixins.py:30
+msgid "Created"
+msgstr "Oluşturuldu"
+
+#: auditlog/mixins.py:36
+msgid "User"
+msgstr "Kullanıcı"
+
+#: auditlog/mixins.py:49
+msgid "Resource"
+msgstr "Kaynak"
+
+#: auditlog/mixins.py:158
+#, python-format
+msgid "Audit log: %s"
+msgstr "Denetim günlüğü: %s"
+
+#: auditlog/mixins.py:179
+msgid "View"
+msgstr "Görüntüle"
+
+#: auditlog/models.py:336
+msgid "create"
+msgstr "oluştur"
+
+#: auditlog/models.py:337
+msgid "update"
+msgstr "güncelle"
+
+#: auditlog/models.py:338
+msgid "delete"
+msgstr "sil"
+
+#: auditlog/models.py:339
+msgid "access"
+msgstr "erişim"
+
+#: auditlog/models.py:346
+msgid "content type"
+msgstr "içerik türü"
+
+#: auditlog/models.py:349
+msgid "object pk"
+msgstr "nesne birincil anahtarı"
+
+#: auditlog/models.py:352
+msgid "object id"
+msgstr "nesne kimliği"
+
+#: auditlog/models.py:354
+msgid "object representation"
+msgstr "nesne gösterimi"
+
+#: auditlog/models.py:357
+msgid "action"
+msgstr "eylem"
+
+#: auditlog/models.py:359 auditlog/models.py:360
+msgid "change message"
+msgstr "değişiklik iletisi"
+
+#: auditlog/models.py:367
+msgid "actor"
+msgstr "işlemi yapan"
+
+#: auditlog/models.py:377
+msgid "remote address"
+msgstr "uzak adres"
+
+#: auditlog/models.py:380
+msgid "remote port"
+msgstr "uzak port"
+
+#: auditlog/models.py:385
+msgid "timestamp"
+msgstr "zaman damgası"
+
+#: auditlog/models.py:388
+msgid "additional data"
+msgstr "ek veri"
+
+#: auditlog/models.py:391
+msgid "actor email"
+msgstr "işlemi yapanın e-postası"
+
+#: auditlog/models.py:400
+msgid "log entry"
+msgstr "günlük kaydı"
+
+#: auditlog/models.py:401
+msgid "log entries"
+msgstr "günlük kayıtları"
+
+#: auditlog/models.py:405
+msgid "Created {repr:s}"
+msgstr "{repr:s} oluşturuldu"
+
+#: auditlog/models.py:407
+msgid "Updated {repr:s}"
+msgstr "{repr:s} güncellendi"
+
+#: auditlog/models.py:409
+msgid "Deleted {repr:s}"
+msgstr "{repr:s} silindi"
+
+#: auditlog/models.py:411
+msgid "Logged {repr:s}"
+msgstr "{repr:s} kaydedildi"
+
+#: auditlog/render.py:64
+msgid "Field"
+msgstr "Alan"
+
+#: auditlog/render.py:64
+msgid "From"
+msgstr "Eski"
+
+#: auditlog/render.py:64
+msgid "To"
+msgstr "Yeni"
+
+#: auditlog/render.py:76
+msgid "Relationship"
+msgstr "İlişki"
+
+#: auditlog/render.py:76
+msgid "Action"
+msgstr "Eylem"
+
+#: auditlog/render.py:76
+msgid "Objects"
+msgstr "Nesneler"
+
+#: auditlog/templates/auditlog/entry_detail.html:7
+msgid "system"
+msgstr "sistem"
+
+#: auditlog/templates/auditlog/entry_detail.html:13
+msgid "No field changes"
+msgstr "Alan değişikliği yok"
+
+#: auditlog/templates/auditlog/object_history.html:134
+msgid "Home"
+msgstr "Ana sayfa"
+
+#: auditlog/templates/auditlog/object_history.html:156
+msgid "No log entries found."
+msgstr "Günlük kaydı bulunamadı."
+
+#: auditlog/templates/auditlog/pagination.html:15
+msgid "entry"
+msgid_plural "entries"
+msgstr[0] "kayıt"
+msgstr[1] "kayıtlar"
+
+#: auditlog_tests/tests.py:1913
+msgid "test"
+msgstr "test"
