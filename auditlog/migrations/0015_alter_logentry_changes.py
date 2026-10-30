@@ -24,6 +24,20 @@ def two_step_migrations() -> list:
             name="changes_text",
             field=models.TextField(blank=True, verbose_name="change message"),
         ),
+        # Make ``changes`` nullable before altering its type. On Oracle an empty
+        # string is stored as NULL, so the existing ``TextField`` column is
+        # already nullable. Altering it straight to a ``JSONField(null=True)``
+        # makes Django emit a redundant ``MODIFY "CHANGES" NULL`` statement that
+        # Oracle rejects with ORA-01451. Relaxing nullability first with a
+        # ``TextField`` keeps the statement a no-op on Oracle while staying a
+        # harmless nullability change on the other backends (see #757).
+        migrations.AlterField(
+            model_name="logentry",
+            name="changes",
+            field=models.TextField(
+                blank=True, null=True, verbose_name="change message"
+            ),
+        ),
         migrations.AlterField(
             model_name="logentry",
             name="changes",
