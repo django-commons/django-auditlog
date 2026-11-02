@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils.functional import SimpleLazyObject
 
 from auditlog.cid import set_cid
 from auditlog.context import set_extra_data
@@ -59,7 +60,9 @@ class AuditlogMiddleware:
         context_data["remote_addr"] = self._get_remote_addr(request)
         context_data["remote_port"] = self._get_remote_port(request)
 
-        context_data["actor"] = self._get_actor(request)
+        # SimpleLazyObject defers evaluating the user in the request until it is accessed
+        # so it prevents a bug where the default anonymous user is used instead of the authenticated user
+        context_data["actor"] = SimpleLazyObject(lambda: self._get_actor(request))
 
         return context_data
 
