@@ -483,6 +483,20 @@ class NullableFieldModel(models.Model):
     history = AuditlogHistoryField(delete_related=True)
 
 
+class ObjectReprOverrideModel(models.Model):
+    public_field = models.CharField(max_length=255)
+    sensitive_field = models.CharField(max_length=255)
+    related = models.ManyToManyField("self", blank=True)
+    parent = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True)
+    history = AuditlogHistoryField()
+
+    def some_callable(self):
+        return f"{self.sensitive_field[0:3]}..."
+
+    def __str__(self):
+        return self.sensitive_field
+
+
 auditlog.register(AltPrimaryKeyModel)
 auditlog.register(UUIDPrimaryKeyModel)
 auditlog.register(ModelPrimaryKeyModel)

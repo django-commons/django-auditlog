@@ -167,6 +167,18 @@ the first half of the string with asterisks.
 
     Masking fields
 
+**Overriding object_repr**
+
+Some models may leak sensitive information to the audit logs through their builtin ``__str__`` method.
+
+You can customize how the entries in the audit log summarize the objects by setting the ``object_repr_field`` when you register the model::
+
+    auditlog.register(MyModel, object_repr_field="safe_summary")
+
+Alternatively you can set the field to a method::
+
+    auditlog.register(MyModel, object_repr_field="get_safe_summary")
+
 **Many-to-many fields**
 
 Changes to many-to-many fields are not tracked by default. If you want to enable tracking of a many-to-many field on a model, pass ``m2m_fields`` to the ``register`` method:
