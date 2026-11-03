@@ -1,0 +1,53 @@
+[
+  {
+    "model": "demo.category",
+    "pk": 1,
+    "fields": {"name": "Technology"}
+  },
+  {
+    "model": "demo.category",
+    "pk": 2,
+    "fields": {"name": "Programming"}
+  },
+  {
+    "model": "demo.tag",
+    "pk": 1,
+    "fields": {"name": "Django"}
+  },
+  {
+    "model": "demo.tag",
+    "pk": 2,
+    "fields": {"name": "Audit"}
+  },
+  {
+    "model": "demo.tag",
+    "pk": 3,
+    "fields": {"name": "Python"}
+  },
+  {
+    "model": "demo.post",
+    "pk": 1,
+    "fields": {
+      "author": null,
+      "category": 1,
+      "tags": [1, 2],
+      "title": "Getting Started with Django Auditlog",
+      "content": "This is a comprehensive guide to using django-auditlog for tracking model changes in your Django applications.",
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "demo.post",
+    "pk": 2,
+    "fields": {
+      "author": null,
+      "category": 2,
+      "tags": [1, 3],
+      "title": "Advanced Auditlog Features",
+      "content": "Exploring advanced features like custom fields, middleware integration, and performance optimization.",
+      "created_at": "2024-01-02T14:30:00Z",
+      "updated_at": "2024-01-02T14:30:00Z"
+    }
+  }
+]
