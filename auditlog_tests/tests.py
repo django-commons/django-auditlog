@@ -4,6 +4,7 @@ import json
 import random
 import warnings
 from datetime import timezone
+from decimal import Decimal
 from unittest import mock, skipIf
 from unittest.mock import patch
 
@@ -44,6 +45,7 @@ from test_app.models import (
     ModelForReusableThroughModel,
     ModelPrimaryKeyModel,
     NoDeleteHistoryModel,
+    NullableFieldModel,
     NullableJSONModel,
     ProxyModel,
     RelatedModel,
@@ -69,7 +71,7 @@ from auditlog import get_logentry_model
 from auditlog.admin import LogEntryAdmin
 from auditlog.cid import get_cid
 from auditlog.context import disable_auditlog, set_actor, set_extra_data
-from auditlog.diff import mask_str, model_instance_diff
+from auditlog.diff import get_field_value, mask_str, model_instance_diff
 from auditlog.middleware import AuditlogMiddleware
 from auditlog.models import DEFAULT_OBJECT_REPR
 from auditlog.registry import AuditlogModelRegistry, AuditLogRegistrationError, auditlog
@@ -1289,12 +1291,64 @@ class DateTimeFieldModelTest(TestCase):
         # Django 6.0+ evaluates expressions during save (django ticket #27222)
         if DJANGO_VERSION >= (6, 0, 0):
             with self.subTest("Django 6.0+"):
-                # Value(None) gets evaluated to "null"
-                self.assertEqual(changes_dict["json"][1], "null")
+                # Value(None) evaluates to None during save; None -> None is
+                # not a change
+                self.assertNotIn("json", changes_dict)
         else:
             with self.subTest("Django < 6.0"):
                 # Value(None) is preserved as string representation
                 self.assertEqual(changes_dict["json"][1], "Value(None)")
+
+    def test_create_with_naive_dt_none(self):
+        timestamp = datetime.datetime(2017, 1, 10, 12, 0, tzinfo=timezone.utc)
+        date = datetime.date(2017, 1, 10)
+        time = datetime.time(12, 0)
+        dtm = DateTimeFieldModel(
+            label="DateTimeField model",
+            timestamp=timestamp,
+            date=date,
+            time=time,
+            naive_dt=None,
+        )
+        dtm.save()
+
+        # naive_dt stayed None, so it should not appear in changes
+        self.assertNotIn("naive_dt", dtm.history.latest().changes_dict)
+
+    def test_create_with_naive_dt_value(self):
+        timestamp = datetime.datetime(2017, 1, 10, 12, 0, tzinfo=timezone.utc)
+        date = datetime.date(2017, 1, 10)
+        time = datetime.time(12, 0)
+        dtm = DateTimeFieldModel(
+            label="DateTimeField model",
+            timestamp=timestamp,
+            date=date,
+            time=time,
+            naive_dt=datetime.datetime(2017, 1, 10, 12, 0, tzinfo=timezone.utc),
+        )
+        dtm.save()
+
+        changes_dict = dtm.history.latest().changes_dict
+        self.assertEqual(changes_dict["naive_dt"], ["None", "2017-01-10 12:00:00"])
+
+    def test_delete_with_naive_dt_none(self):
+        timestamp = datetime.datetime(2017, 1, 10, 12, 0, tzinfo=timezone.utc)
+        date = datetime.date(2017, 1, 10)
+        time = datetime.time(12, 0)
+        dtm = DateTimeFieldModel(
+            label="DateTimeField model",
+            timestamp=timestamp,
+            date=date,
+            time=time,
+            naive_dt=None,
+        )
+        dtm.save()
+        dtm.delete()
+
+        changes_dict = LogEntry.objects.latest("timestamp").changes_dict
+
+        # naive_dt stayed None, so it should not appear in changes
+        self.assertNotIn("naive_dt", changes_dict)
 
 
 class UnregisterTest(TestCase):
@@ -2132,6 +2186,69 @@ class JSONModelTest(TestCase):
 
 
 class ModelInstanceDiffTest(TestCase):
+    def test_decimal_representation_change_not_logged(self):
+        """Equal values that only differ in representation are not a change."""
+        old = NullableFieldModel(amount=Decimal("0.17"))
+        new = NullableFieldModel(amount=Decimal("0.17000"))
+
+        self.assertIsNone(model_instance_diff(old, new))
+
+    def test_json_change_with_equal_python_values_logged(self):
+        """dict equality coerces 1 == True; the serialized JSON decides instead."""
+        old = NullableJSONModel(json={"a": 1})
+        new = NullableJSONModel(json={"a": True})
+
+        diff = model_instance_diff(old, new)
+        self.assertEqual(diff["json"], ('{"a": 1}', '{"a": true}'))
+
+    def test_scalar_type_change_logged(self):
+        """1 == 1.0 in Python, but a type change is still a change."""
+        old = SimpleModel(integer=1)
+        new = SimpleModel(integer=1.0)
+
+        diff = model_instance_diff(old, new)
+        self.assertEqual(diff["integer"], ("1", "1.0"))
+
+    def test_json_value_unserializable_as_json_falls_back_to_str(self):
+        """json.dumps failure falls back to the string representation."""
+        old = NullableJSONModel(json=None)
+        new = NullableJSONModel(json={1})
+
+        diff = model_instance_diff(old, new)
+        self.assertEqual(diff["json"], ("null", "{1}"))
+
+    def test_get_field_value_returns_serialized_values(self):
+        field = SimpleModel._meta.get_field("integer")
+        obj = SimpleModel(integer=5)
+
+        self.assertEqual(get_field_value(obj, field), "5")
+        self.assertEqual(get_field_value(obj, field, use_json_for_changes=True), 5)
+        self.assertEqual(get_field_value(None, field), "None")
+
+    def test_value_without_truth_value_falls_back_to_serialized_comparison(self):
+        """No error is raised when comparing field values whose __eq__ has no
+        truth value (e.g. numpy arrays)."""
+
+        class Truthless:
+            def __bool__(self):
+                raise ValueError("ambiguous truth value")
+
+        class ArrayLike:
+            def __init__(self, text):
+                self.text = text
+
+            def __eq__(self, other):
+                return Truthless()
+
+            def __str__(self):
+                return self.text
+
+        old = SimpleModel(text=ArrayLike("a"))
+        new = SimpleModel(text=ArrayLike("b"))
+
+        diff = model_instance_diff(old, new)
+        self.assertEqual(diff["text"], ("a", "b"))
+
     def test_diff_models_with_related_fields(self):
         """No error is raised when comparing models with related fields."""
 
@@ -2461,6 +2578,18 @@ class TestRelatedDiffs(TestCase):
         self.assertEqual(log_update.changes_dict["related"][1], "Test Bar")
         self.assertEqual(log_update.changes_dict["one_to_one"][0], "Test Foo")
         self.assertEqual(log_update.changes_dict["one_to_one"][1], "Test Bar")
+
+    @override_settings(AUDITLOG_USE_FK_STRING_REPRESENTATION=True)
+    def test_string_representation_change_of_unchanged_fk_not_logged(self):
+        """An unchanged FK is not a change, even if the related repr changed"""
+
+        simple = SimpleModel.objects.create(text="Test Foo")
+        instance = RelatedModel.objects.create(one_to_one=simple, related=simple)
+
+        simple.text = "Test Bar"
+        instance.save()
+
+        self.assertEqual(instance.history.all().count(), 1)
 
 
 class TestModelSerialization(TestCase):
