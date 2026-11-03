@@ -21,6 +21,11 @@ settings.AUDITLOG_EXCLUDE_TRACKING_FIELDS = getattr(
     settings, "AUDITLOG_EXCLUDE_TRACKING_FIELDS", ()
 )
 
+# Exclude reverse relation fields across all models
+settings.AUDITLOG_EXCLUDE_REVERSE_RELATIONS = getattr(
+    settings, "AUDITLOG_EXCLUDE_REVERSE_RELATIONS", False
+)
+
 # Mask named fields across all models
 settings.AUDITLOG_MASK_TRACKING_FIELDS = getattr(
     settings, "AUDITLOG_MASK_TRACKING_FIELDS", ()

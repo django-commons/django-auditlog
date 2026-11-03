@@ -676,3 +676,13 @@ The mixin provides the following configuration options:
 - ``auditlog_history_template``: Template to use for rendering the history page (default: ``auditlog/object_history.html``)
 - ``auditlog_history_per_page``: Number of log entries to display per page (default: 10)
 
+.. versionadded:: 3.2.2
+
+Default: False
+
+Use ``AUDITLOG_EXCLUDE_REVERSE_RELATIONS`` to exclude reverse relation fields (auto-created fields
+where `field.auto_created is True` and `field.concrete is False`) when computing
+model diffs. This avoids accidental database queries for related objects and avoids
+mutating `instance._state.fields_cache` as a side-effect.
+
+Added to address: https://github.com/jazzband/django-auditlog/issues/551

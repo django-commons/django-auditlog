@@ -218,6 +218,19 @@ def model_instance_diff(
         fields = set()
         model_fields = None
 
+    # Optionally exclude reverse relations (auto-created fields).
+    # Reverse relations (auto_created & not concrete) can cause unwanted DB hits
+    # and mutate instance._state.fields_cache as a side-effect.
+    # Make this behavior opt-in via AUDITLOG_EXCLUDE_REVERSE_RELATIONS.
+    if settings.AUDITLOG_EXCLUDE_REVERSE_RELATIONS:
+
+        def is_reverse_field(f):
+            return getattr(f, "auto_created", False) and not getattr(
+                f, "concrete", False
+            )
+
+        fields = {f for f in fields if not is_reverse_field(f)}
+
     if fields_to_check:
         fields = {
             field
