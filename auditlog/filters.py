@@ -1,4 +1,5 @@
 from django.contrib.admin import SimpleListFilter
+from django.contrib.admin.options import IncorrectLookupParameters
 from django.utils.translation import gettext_lazy as _
 
 
@@ -12,9 +13,14 @@ class ResourceTypeFilter(SimpleListFilter):
         return list(types.order_by("content_type__model").distinct())
 
     def queryset(self, request, queryset):
-        if self.value() is None:
+        value = self.value()
+        if value is None:
             return queryset
-        return queryset.filter(content_type_id=self.value())
+        try:
+            value = int(value)
+        except (TypeError, ValueError) as exc:
+            raise IncorrectLookupParameters(exc) from exc
+        return queryset.filter(content_type_id=value)
 
 
 class CIDFilter(SimpleListFilter):

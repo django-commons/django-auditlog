@@ -12,6 +12,7 @@ from dateutil.tz import gettz
 from django import VERSION as DJANGO_VERSION
 from django.apps import apps
 from django.conf import settings
+from django.contrib.admin.options import IncorrectLookupParameters
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, User
@@ -70,6 +71,7 @@ from auditlog.admin import LogEntryAdmin
 from auditlog.cid import get_cid
 from auditlog.context import disable_auditlog, set_actor, set_extra_data
 from auditlog.diff import mask_str, model_instance_diff
+from auditlog.filters import ResourceTypeFilter
 from auditlog.middleware import AuditlogMiddleware
 from auditlog.models import DEFAULT_OBJECT_REPR
 from auditlog.registry import AuditlogModelRegistry, AuditLogRegistrationError, auditlog
@@ -1855,6 +1857,45 @@ class AdminPanelTest(TestCase):
 
         self.assertTrue(self.admin.has_delete_permission(delete_object_request, log))
         self.assertFalse(self.admin.has_delete_permission(delete_log_request, log))
+
+    def _list_filter_params(self, request):
+        # Match ChangeList: Django 5.0+ uses lists(), 4.2 uses items() strings.
+        # QueryDict.pop() returns a list; Django 4.2 SimpleListFilter stores that as-is.
+        if DJANGO_VERSION >= (5, 0):
+            return dict(request.GET.lists())
+        return dict(request.GET.items())
+
+    def test_resource_type_filter_invalid_value_raises_incorrect_lookup_parameters(
+        self,
+    ):
+        request = RequestFactory().get(
+            f"/{self.admin_path_prefix}/",
+            {"resource_type": "21X"},
+        )
+        request.user = self.user
+        resource_type_filter = ResourceTypeFilter(
+            request, self._list_filter_params(request), LogEntry, self.admin
+        )
+
+        with self.assertRaises(IncorrectLookupParameters):
+            resource_type_filter.queryset(request, LogEntry.objects.all())
+
+    def test_resource_type_filter_valid_value_filters_queryset(self):
+        SimpleExcludeModel.objects.create(label="other", text="other")
+        content_type_id = self.obj.history.latest().content_type_id
+        request = RequestFactory().get(
+            f"/{self.admin_path_prefix}/",
+            {"resource_type": str(content_type_id)},
+        )
+        request.user = self.user
+        resource_type_filter = ResourceTypeFilter(
+            request, self._list_filter_params(request), LogEntry, self.admin
+        )
+
+        result = resource_type_filter.queryset(request, LogEntry.objects.all())
+
+        self.assertEqual(result.count(), 1)
+        self.assertEqual(result.get().content_type_id, content_type_id)
 
 
 class DiffMsgTest(TestCase):
