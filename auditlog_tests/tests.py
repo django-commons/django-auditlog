@@ -206,7 +206,7 @@ class SimpleModelTest(TestCase):
         self.delete(obj)
 
         # Check for log entries
-        qs = LogEntry.objects.filter(content_type=content_type, object_pk=pk)
+        qs = LogEntry.objects.filter(content_type=content_type, object_pk=str(pk))
         self.assertEqual(qs.count(), 1, msg="There is one log entry for 'DELETE'")
 
         history = qs.get()

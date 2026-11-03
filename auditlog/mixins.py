@@ -4,6 +4,7 @@ from django import urls as urlresolvers
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin.views.main import PAGE_VAR
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest
 from django.template.response import TemplateResponse
@@ -139,9 +140,11 @@ class AuditlogHistoryAdminMixin:
         obj = self.get_object(request, unquote(object_id))
         if not self.has_view_permission(request, obj):
             raise PermissionDenied
-
+        ct = ContentType.objects.get_for_model(obj.__class__)
         log_entries = (
-            LogEntry.objects.get_for_object(obj)
+            LogEntry.objects.filter(
+                content_type=ct, object_pk=str(obj.pk)
+            )  # <--- Fixed here
             .select_related("actor")
             .order_by("-timestamp")
         )

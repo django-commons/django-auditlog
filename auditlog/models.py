@@ -148,10 +148,7 @@ class LogEntryManager(models.Manager):
         content_type = ContentType.objects.get_for_model(instance.__class__)
         pk = self._get_pk_value(instance)
 
-        if isinstance(pk, int):
-            return self.filter(content_type=content_type, object_id=pk)
-        else:
-            return self.filter(content_type=content_type, object_pk=smart_str(pk))
+        return self.filter(content_type=content_type, object_pk=smart_str(pk))
 
     def get_for_objects(self, queryset):
         """
@@ -160,8 +157,7 @@ class LogEntryManager(models.Manager):
         :param queryset: The queryset to get the log entries for.
         :type queryset: QuerySet
         :return: The LogEntry objects for the objects in the given queryset.
-        :rtype: QuerySet
-        """
+        :rtype: QuerySet"""
         if not isinstance(queryset, QuerySet) or queryset.count() == 0:
             return self.none()
 
@@ -170,25 +166,14 @@ class LogEntryManager(models.Manager):
             queryset.values_list(queryset.model._meta.pk.name, flat=True)
         )
 
-        if isinstance(primary_keys[0], int):
-            return (
-                self.filter(content_type=content_type)
-                .filter(Q(object_id__in=primary_keys))
-                .distinct()
-            )
-        elif isinstance(queryset.model._meta.pk, models.UUIDField):
-            primary_keys = [smart_str(pk) for pk in primary_keys]
-            return (
-                self.filter(content_type=content_type)
-                .filter(Q(object_pk__in=primary_keys))
-                .distinct()
-            )
-        else:
-            return (
-                self.filter(content_type=content_type)
-                .filter(Q(object_pk__in=primary_keys))
-                .distinct()
-            )
+        # Always compare as strings for PostgreSQL compatibility
+        primary_keys = [smart_str(pk) for pk in primary_keys]
+
+        return (
+            self.filter(content_type=content_type)
+            .filter(Q(object_pk__in=primary_keys))
+            .distinct()
+        )
 
     def get_for_model(self, model):
         """
