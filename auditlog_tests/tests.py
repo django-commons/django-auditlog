@@ -24,6 +24,7 @@ from django.db.models import JSONField, Value
 from django.db.models.functions import Now
 from django.db.models.signals import pre_save
 from django.test import RequestFactory, TestCase, TransactionTestCase, override_settings
+from django.test.utils import isolate_apps
 from django.urls import resolve, reverse
 from django.utils import dateformat, formats
 from django.utils import timezone as django_timezone
@@ -136,6 +137,26 @@ class SimpleModelTest(TestCase):
             "boolean: False → True",
             msg="Changes string is correct",
         )
+
+    @isolate_apps("auditlog_tests")
+    def test_deletion_with_deferred_fields_does_not_crash(db):
+        from auditlog.models import LogEntry
+        from auditlog.registry import auditlog
+
+        class Book(models.Model):
+            title = models.CharField(max_length=100)
+            description = models.TextField()
+
+            class Meta:
+                app_label = "auditlog_tests"
+
+        auditlog.register(Book, serialize_data=True)
+
+        b = Book.objects.create(title="foo", description="bar")
+        b = Book.objects.defer("description").get(id=b.id)  # defer a field
+        b.delete()
+
+        assert LogEntry.objects.filter(object_pk=b.pk).exists()
 
     def test_update_specific_field_supplied_via_save_method(self):
         obj = self.obj
