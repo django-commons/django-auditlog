@@ -95,6 +95,12 @@ class LogEntryManager(models.Manager):
         :param kwargs: Field overrides for the :py:class:`LogEntry` object.
         :return: The new log entry or `None` if there were no changes.
         :rtype: LogEntry
+
+        The resulting ``LogEntry.changes[field_name]`` dict includes both
+        ``"objects"`` (the ``str()`` representation of each changed related
+        object) and ``"object_pks"`` (the primary key of each changed related
+        object, in the same order - kept as ``int`` when the pk is an integer,
+        and coerced to ``str`` otherwise so it stays JSON-serializable)
         """
         from auditlog.cid import get_cid
 
@@ -118,12 +124,20 @@ class LogEntryManager(models.Manager):
             if callable(get_additional_data):
                 kwargs.setdefault("additional_data", get_additional_data())
 
-            objects = [smart_str(instance) for instance in changed_queryset]
+            objects = []
+            object_pks = []
+            for related_obj in changed_queryset:
+                objects.append(smart_str(related_obj))
+                related_pk = self._get_pk_value(related_obj)
+                object_pks.append(
+                    related_pk if isinstance(related_pk, int) else smart_str(related_pk)
+                )
             kwargs["changes"] = {
                 field_name: {
                     "type": "m2m",
                     "operation": operation,
                     "objects": objects,
+                    "object_pks": object_pks,
                 }
             }
 

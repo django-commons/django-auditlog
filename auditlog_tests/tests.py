@@ -73,7 +73,7 @@ from auditlog.diff import mask_str, model_instance_diff
 from auditlog.middleware import AuditlogMiddleware
 from auditlog.models import DEFAULT_OBJECT_REPR
 from auditlog.registry import AuditlogModelRegistry, AuditLogRegistrationError, auditlog
-from auditlog.signals import post_log, pre_log
+from auditlog.signals import post_log, post_m2m_log, pre_log, pre_m2m_log
 
 LogEntry = get_logentry_model()
 
@@ -505,6 +505,7 @@ class ManyRelatedModelTest(TestCase):
                     "type": "m2m",
                     "operation": "add",
                     "objects": [smart_str(self.related)],
+                    "object_pks": [self.related.pk],
                 }
             },
         )
@@ -516,6 +517,117 @@ class ManyRelatedModelTest(TestCase):
             log_entry.changes_str, f"related: add {[smart_str(self.related)]}"
         )
 
+    def test_m2m_signals_add(self):
+        captured_pre = {}
+        captured_post = {}
+
+        def pre_receiver(sender, instance, action, field_name, operation, **_kwargs):
+            captured_pre.update(
+                sender=sender,
+                instance=instance,
+                action=action,
+                field_name=field_name,
+                operation=operation,
+            )
+
+        def post_receiver(
+            sender,
+            instance,
+            action,
+            field_name,
+            operation,
+            error,
+            log_entry,
+            log_created,
+            changes,
+            pre_log_results,
+            **_kwargs,
+        ):
+            captured_post.update(
+                sender=sender,
+                instance=instance,
+                action=action,
+                field_name=field_name,
+                operation=operation,
+                error=error,
+                log_entry=log_entry,
+                log_created=log_created,
+                changes=changes,
+                pre_log_results=pre_log_results,
+            )
+
+        pre_m2m_log.connect(pre_receiver)
+        post_m2m_log.connect(post_receiver)
+
+        self.obj.related.add(self.related)
+        log_entry = self.obj.history.first()
+
+        self.assertEqual(captured_pre["sender"], ManyRelatedModel)
+        self.assertIs(captured_pre["instance"], self.obj)
+        self.assertEqual(captured_pre["action"], LogEntry.Action.UPDATE)
+        self.assertEqual(captured_pre["field_name"], "related")
+        self.assertEqual(captured_pre["operation"], "add")
+
+        self.assertEqual(captured_post["sender"], ManyRelatedModel)
+        self.assertIs(captured_post["instance"], self.obj)
+        self.assertEqual(captured_post["action"], LogEntry.Action.UPDATE)
+        self.assertEqual(captured_post["field_name"], "related")
+        self.assertEqual(captured_post["operation"], "add")
+        self.assertIsNone(captured_post["error"])
+        self.assertEqual(captured_post["log_entry"], log_entry)
+        self.assertTrue(captured_post["log_created"])
+        self.assertEqual(captured_post["changes"], log_entry.changes)
+        self.assertEqual(len(captured_post["pre_log_results"]), 1)
+
+    def test_m2m_signals_remove(self):
+        self.obj.related.add(self.related)
+
+        captured_post = {}
+
+        def post_receiver(operation, log_entry, **_kwargs):
+            captured_post.update(operation=operation, log_entry=log_entry)
+
+        post_m2m_log.connect(post_receiver)
+
+        self.obj.related.remove(self.related)
+        log_entry = self.obj.history.first()
+
+        self.assertEqual(captured_post["operation"], "delete")
+        self.assertEqual(captured_post["log_entry"], log_entry)
+
+    def test_m2m_signals_clear(self):
+        self.obj.related.add(self.related)
+
+        captured_post = {}
+
+        def post_receiver(operation, log_entry, **_kwargs):
+            captured_post.update(operation=operation, log_entry=log_entry)
+
+        post_m2m_log.connect(post_receiver)
+
+        self.obj.related.clear()
+        log_entry = self.obj.history.first()
+
+        self.assertEqual(captured_post["operation"], "delete")
+        self.assertEqual(captured_post["log_entry"], log_entry)
+
+    def test_m2m_does_not_trigger_pre_post_log(self):
+        """
+        m2m changes are reported via pre_m2m_log/post_m2m_log, not pre_log/post_log,
+        since the m2m `changes` payload shape differs from the regular one.
+        """
+        called = []
+
+        def receiver(*_args, **_kwargs):
+            called.append(True)
+
+        pre_log.connect(receiver)
+        post_log.connect(receiver)
+
+        self.obj.related.add(self.related)
+
+        self.assertEqual(called, [])
+
     def test_adding_existing_related_obj(self):
         self.obj.related.add(self.related)
         log_entry = self.obj.history.first()
@@ -526,6 +638,7 @@ class ManyRelatedModelTest(TestCase):
                     "type": "m2m",
                     "operation": "add",
                     "objects": [smart_str(self.related)],
+                    "object_pks": [self.related.pk],
                 }
             },
         )
@@ -2924,6 +3037,78 @@ class SignalTests(TestCase):
             obj.delete()
         self.assertEqual(self.my_post_log_data["my_error"], error_delete)
 
+    def test_custom_signals_m2m(self):
+        m2m_obj = ManyRelatedModel.objects.create()
+        m2m_related = ManyRelatedOtherModel.objects.create()
+
+        my_pre_log_data = {}
+        my_post_log_data = {}
+
+        def pre_log_receiver(
+            sender, instance, action, field_name, operation, **_kwargs
+        ):
+            my_pre_log_data["is_called"] = True
+            my_pre_log_data["my_sender"] = sender
+            my_pre_log_data["my_instance"] = instance
+            my_pre_log_data["my_action"] = action
+            my_pre_log_data["my_field_name"] = field_name
+            my_pre_log_data["my_operation"] = operation
+
+        def post_log_receiver(
+            sender, instance, action, error, log_entry, field_name, operation, **_kwargs
+        ):
+            my_post_log_data["is_called"] = True
+            my_post_log_data["my_sender"] = sender
+            my_post_log_data["my_instance"] = instance
+            my_post_log_data["my_action"] = action
+            my_post_log_data["my_error"] = error
+            my_post_log_data["my_log_entry"] = log_entry
+            my_post_log_data["my_field_name"] = field_name
+            my_post_log_data["my_operation"] = operation
+
+        pre_m2m_log.connect(pre_log_receiver)
+        post_m2m_log.connect(post_log_receiver)
+
+        m2m_obj.related.add(m2m_related)
+
+        self.assertTrue(my_pre_log_data.get("is_called"), "pre_m2m_log not called")
+        self.assertIs(my_pre_log_data["my_sender"], ManyRelatedModel)
+        self.assertIs(my_pre_log_data["my_instance"], m2m_obj)
+        self.assertEqual(my_pre_log_data["my_action"], LogEntry.Action.UPDATE)
+        self.assertEqual(my_pre_log_data["my_field_name"], "related")
+        self.assertEqual(my_pre_log_data["my_operation"], "add")
+
+        self.assertTrue(my_post_log_data.get("is_called"), "post_m2m_log not called")
+        self.assertIs(my_post_log_data["my_sender"], ManyRelatedModel)
+        self.assertIs(my_post_log_data["my_instance"], m2m_obj)
+        self.assertEqual(my_post_log_data["my_action"], LogEntry.Action.UPDATE)
+        self.assertIsNone(my_post_log_data["my_error"])
+        self.assertIsNotNone(my_post_log_data["my_log_entry"])
+        self.assertEqual(my_post_log_data["my_field_name"], "related")
+        self.assertEqual(my_post_log_data["my_operation"], "add")
+
+    @patch.object(LogEntry, "objects")
+    def test_signals_errors_m2m(self, log_entry_objects_mock):
+        class CustomSignalError(BaseException):
+            pass
+
+        my_post_log_data = {}
+
+        def post_log_receiver(error, **_kwargs):
+            my_post_log_data["my_error"] = error
+
+        post_m2m_log.connect(post_log_receiver)
+
+        error = CustomSignalError("m2m")
+        log_entry_objects_mock.log_m2m_changes.side_effect = error
+
+        m2m_obj = ManyRelatedModel.objects.create()
+        m2m_related = ManyRelatedOtherModel.objects.create()
+
+        with self.assertRaises(CustomSignalError):
+            m2m_obj.related.add(m2m_related)
+        self.assertEqual(my_post_log_data["my_error"], error)
+
 
 @override_settings(AUDITLOG_DISABLE_ON_RAW_SAVE=True)
 class DisableTest(TestCase):
@@ -3150,6 +3335,7 @@ class BaseManagerSettingTest(TestCase):
                     "type": "m2m",
                     "operation": "add",
                     "objects": [smart_str(obj_two)],
+                    "object_pks": [obj_two.pk],
                 }
             },
         )
