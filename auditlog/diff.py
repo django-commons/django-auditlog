@@ -3,6 +3,7 @@ from collections.abc import Callable
 from datetime import timezone
 
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericRelation
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from django.db.models import NOT_PROVIDED, DateTimeField, ForeignKey, JSONField, Model
 from django.utils import timezone as django_timezone
@@ -16,7 +17,10 @@ def track_field(field):
     """
     Returns whether the given field should be tracked by Auditlog.
 
-    Untracked fields are many-to-many relations and relations to the Auditlog LogEntry model.
+    Untracked fields are:
+    - Many-to-many relations
+    - Generic relations (they produce unhelpful repr output)
+    - Relations to the Auditlog LogEntry model
 
     :param field: The field to check.
     :type field: Field
@@ -26,6 +30,10 @@ def track_field(field):
 
     # Do not track many to many relations
     if field.many_to_many:
+        return False
+
+    # Do not track generic relations
+    if isinstance(field, GenericRelation):
         return False
 
     # Do not track relations to LogEntry

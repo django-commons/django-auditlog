@@ -181,6 +181,12 @@ Note that when the user changes multiple many-to-many fields on the same object 
 
 .. versionadded:: 2.1.0
 
+**Generic relations**
+
+Changes to ``GenericRelation`` fields (e.g. Django's ``django.contrib.contenttypes.fields.GenericRelation``) are not tracked. Unlike a regular field, accessing a ``GenericRelation`` returns its related manager rather than a meaningful value, so logging it would only capture an unhelpful repr of that manager.
+
+.. versionadded:: 3.5.0
+
 **Serialized Data**
 
 The state of an object following a change action may be optionally serialized and persisted in the ``LogEntry.serialized_data`` JSONField. To enable this feature for a registered model, add ``serialize_data=True`` to the kwargs on the ``auditlog.register(...)`` method. Object serialization will not occur unless this kwarg is set.

@@ -15,6 +15,7 @@ from django.conf import settings
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.core import management
 from django.core.exceptions import ImproperlyConfigured
@@ -38,6 +39,7 @@ from test_app.models import (
     ChoicesFieldModel,
     CustomMaskModel,
     DateTimeFieldModel,
+    GenericRelationModel,
     JSONModel,
     ManyRelatedModel,
     ManyRelatedOtherModel,
@@ -69,7 +71,7 @@ from auditlog import get_logentry_model
 from auditlog.admin import LogEntryAdmin
 from auditlog.cid import get_cid
 from auditlog.context import disable_auditlog, set_actor, set_extra_data
-from auditlog.diff import mask_str, model_instance_diff
+from auditlog.diff import mask_str, model_instance_diff, track_field
 from auditlog.middleware import AuditlogMiddleware
 from auditlog.models import DEFAULT_OBJECT_REPR
 from auditlog.registry import AuditlogModelRegistry, AuditLogRegistrationError, auditlog
@@ -1399,7 +1401,7 @@ class RegisterModelSettingsTest(TestCase):
 
         self.assertTrue(self.test_auditlog.contains(SimpleExcludeModel))
         self.assertTrue(self.test_auditlog.contains(ChoicesFieldModel))
-        self.assertEqual(len(self.test_auditlog.get_models()), 36)
+        self.assertEqual(len(self.test_auditlog.get_models()), 38)
 
     def test_register_models_register_model_with_attrs(self):
         self.test_auditlog._register_models(
@@ -2276,6 +2278,30 @@ class ModelInstanceDiffTest(TestCase):
                 )
             },
         )
+
+    def test_generic_relation_field_is_not_tracked(self):
+        field = GenericRelationModel._meta.get_field("tags")
+        self.assertIsInstance(field, GenericRelation)
+        self.assertFalse(track_field(field))
+
+    def test_diff_models_with_generic_relation(self):
+        first = GenericRelationModel(label="first")
+        second = GenericRelationModel(label="second")
+
+        changes = model_instance_diff(first, second)
+
+        self.assertEqual(changes, {"label": ("first", "second")})
+
+    def test_generic_relation_not_logged_on_save(self):
+        obj = GenericRelationModel.objects.create(label="first")
+        obj.label = "second"
+        obj.save()
+
+        log_entry = obj.history.filter(action=LogEntry.Action.UPDATE).latest(
+            "timestamp"
+        )
+        self.assertNotIn("tags", log_entry.changes_dict)
+        self.assertEqual(log_entry.changes_dict["label"], ["first", "second"])
 
 
 class TestRelatedDiffs(TestCase):

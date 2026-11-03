@@ -13,6 +13,7 @@
 #### Fixes
 
 - `KeyError` when calling `changes_str` on a log entry that tracks many-to-many field changes ([#798](https://github.com/jazzband/django-auditlog/pull/798))
+- Don't track `GenericRelation` fields by default, since they resolve to an unhelpful repr of their related manager instead of a meaningful value
 
 ## 3.4.1 (2025-12-13)
 

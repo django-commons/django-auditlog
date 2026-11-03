@@ -1,6 +1,8 @@
 import uuid
 
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
+from django.contrib.contenttypes.models import ContentType
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 
@@ -483,6 +485,29 @@ class NullableFieldModel(models.Model):
     history = AuditlogHistoryField(delete_related=True)
 
 
+class TaggedItem(models.Model):
+    """
+    A model with a GenericForeignKey, used as the target of a GenericRelation.
+    """
+
+    tag = models.CharField(max_length=100)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+
+
+class GenericRelationModel(models.Model):
+    """
+    A model with a GenericRelation field, used to test that generic relations
+    are not tracked by default.
+    """
+
+    label = models.CharField(max_length=100)
+    tags = GenericRelation(TaggedItem)
+
+    history = AuditlogHistoryField(delete_related=True)
+
+
 auditlog.register(AltPrimaryKeyModel)
 auditlog.register(UUIDPrimaryKeyModel)
 auditlog.register(ModelPrimaryKeyModel)
@@ -530,3 +555,4 @@ auditlog.register(
     mask_callable="auditlog_tests.test_app.mask.custom_mask_str",
 )
 auditlog.register(NullableFieldModel)
+auditlog.register(GenericRelationModel)
