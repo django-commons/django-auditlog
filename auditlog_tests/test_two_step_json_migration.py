@@ -131,6 +131,23 @@ class AuditlogMigrateJsonTest(TestCase):
         # Assert
         self.assertEqual(call_count, 2)
 
+    def test_using_django_batched_skips_unmigratable_logs(self):
+        # Arrange: entries that cannot be converted stay in the queryset, so
+        # they are re-fetched by every batch and starve the migratable entries
+        # behind them.
+        migratable = self.make_logentry()
+        for _ in range(2):
+            unmigratable = self.make_logentry()
+            unmigratable.changes_text = "not json"
+            unmigratable.save()
+
+        # Act
+        outbuf, errbuf = self.call_command("-b=1")
+        migratable.refresh_from_db()
+
+        # Assert
+        self.assertIsNotNone(migratable.changes)
+
     @skipIf(settings.TEST_DB_BACKEND != "postgresql", "PostgreSQL-specific test")
     def test_native_postgres(self):
         # Arrange
