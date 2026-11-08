@@ -318,10 +318,7 @@ class AbstractLogEntry(models.Model):
 
     class Action:
         """
-        The actions that Auditlog distinguishes: creating, updating and deleting objects. Viewing objects
-        is not logged. The values of the actions are numeric, a higher integer value means a more intrusive
-        action. This may be useful in some cases when comparing actions because the ``__lt``, ``__lte``,
-        ``__gt``, ``__gte`` lookup filters can be used in queries.
+        The actions that Auditlog distinguishes: creating, updating, deleting and accessing objects.
 
         The valid actions are :py:attr:`Action.CREATE`, :py:attr:`Action.UPDATE`,
         :py:attr:`Action.DELETE` and :py:attr:`Action.ACCESS`.

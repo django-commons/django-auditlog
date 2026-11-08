@@ -71,6 +71,7 @@ class Migration(migrations.Migration):
                 "get_latest_by": "timestamp",
                 "verbose_name": "log entry",
                 "verbose_name_plural": "log entries",
+                "swappable": "AUDITLOG_LOGENTRY_MODEL",
             },
             bases=(models.Model,),
         ),

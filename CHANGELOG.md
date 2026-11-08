@@ -5,6 +5,10 @@
 #### Improvements
 
 - Add support for Python 3.14 and Django 6.0
+- Add support for Django 6.1
+- Add German (de) locale ([#831](https://github.com/jazzband/django-auditlog/pull/831))
+- Switched to trusted publisher release process with Django Commons
+- Switch from Jazzband org to Django Commons
 
 #### Fixes
 

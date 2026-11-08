@@ -471,7 +471,7 @@ You can use this option to enable the legacy behavior.
 
 .. warning::
 
-    This reintroduces a known issue https://github.com/jazzband/django-auditlog/issues/421
+    This reintroduces a known issue https://github.com/django-commons/django-auditlog/issues/421
     Commission Error: Causes unnecessary LogEntries even though no update occurrs because the string representation in memory changed
     Omission Error: More common problem, a related object is updated to another object with the same string representation, no update is logged
 
