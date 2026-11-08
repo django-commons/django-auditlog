@@ -68,6 +68,7 @@ class AuditlogModelRegistry:
         mask_fields: list[str] | None = None,
         mask_callable: str | None = None,
         m2m_fields: Collection[str] | None = None,
+        object_repr_field: str | None = None,
         serialize_data: bool = False,
         serialize_kwargs: dict[str, Any] | None = None,
         serialize_auditlog_fields_only: bool = False,
@@ -82,6 +83,8 @@ class AuditlogModelRegistry:
         :param mask_fields: The fields to mask for sensitive info.
         :param mask_callable: The dotted path to a callable that will be used for masking. If not provided,
                               the default mask_callable will be used.
+        :param object_repr_field: The field or method to represent the instance in the log entry's object_repr
+                              field, when absent the instance is stringified
         :param m2m_fields: The fields to handle as many to many.
         :param serialize_data: Option to include a dictionary of the objects state in the auditlog.
         :param serialize_kwargs: Optional kwargs to pass to Django serializer
@@ -125,6 +128,7 @@ class AuditlogModelRegistry:
                 "mask_fields": mask_fields,
                 "mask_callable": mask_callable,
                 "m2m_fields": m2m_fields,
+                "object_repr_field": object_repr_field,
                 "serialize_data": serialize_data,
                 "serialize_kwargs": serialize_kwargs,
                 "serialize_auditlog_fields_only": serialize_auditlog_fields_only,
@@ -177,6 +181,7 @@ class AuditlogModelRegistry:
             "mapping_fields": dict(self._registry[model]["mapping_fields"]),
             "mask_fields": list(self._registry[model]["mask_fields"]),
             "mask_callable": self._registry[model]["mask_callable"],
+            "object_repr_field": self._registry[model]["object_repr_field"],
         }
 
     def get_serialize_options(self, model: ModelBase):

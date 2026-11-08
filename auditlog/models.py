@@ -58,10 +58,7 @@ class LogEntryManager(models.Manager):
                 "content_type", ContentType.objects.get_for_model(instance)
             )
             kwargs.setdefault("object_pk", pk)
-            try:
-                object_repr = smart_str(instance)
-            except ObjectDoesNotExist:
-                object_repr = DEFAULT_OBJECT_REPR
+            object_repr = _get_object_repr_value(instance)
             kwargs.setdefault("object_repr", object_repr)
             kwargs.setdefault(
                 "serialized_data", self._get_serialized_data_or_none(instance)
@@ -104,10 +101,7 @@ class LogEntryManager(models.Manager):
                 "content_type", ContentType.objects.get_for_model(instance)
             )
             kwargs.setdefault("object_pk", pk)
-            try:
-                object_repr = smart_str(instance)
-            except ObjectDoesNotExist:
-                object_repr = DEFAULT_OBJECT_REPR
+            object_repr = _get_object_repr_value(instance)
             kwargs.setdefault("object_repr", object_repr)
             kwargs.setdefault("action", LogEntry.Action.UPDATE)
 
@@ -118,7 +112,9 @@ class LogEntryManager(models.Manager):
             if callable(get_additional_data):
                 kwargs.setdefault("additional_data", get_additional_data())
 
-            objects = [smart_str(instance) for instance in changed_queryset]
+            objects = [
+                _get_object_repr_value(instance) for instance in changed_queryset
+            ]
             kwargs["changes"] = {
                 field_name: {
                     "type": "m2m",
@@ -563,7 +559,7 @@ class AbstractLogEntry(models.Model):
         try:
             related_model_manager = _get_manager_from_settings(field.related_model)
 
-            return smart_str(related_model_manager.get(pk=pk_value))
+            return _get_object_repr_value(related_model_manager.get(pk=pk_value))
         # ObjectDoesNotExist will be raised if the object was deleted.
         except ObjectDoesNotExist:
             return f"Deleted '{field.related_model.__name__}' ({value})"
@@ -650,3 +646,28 @@ def _get_manager_from_settings(model: type[models.Model]) -> models.Manager:
         return model._meta.base_manager
     else:
         return model._meta.default_manager
+
+
+def _get_object_repr_value(instance):
+    """
+    Get the object_repr value of the given model instance. The default behavior is to stringify the
+    instance, unless an explicit object_repr_field is given when registering the model onto the audit log.
+
+    :param instance: The model instance to get the object_repr value for.
+    :type instance: Model
+    :return: The object_repr value of the given model instance.
+    """
+    from auditlog.registry import auditlog
+
+    target = instance
+    try:
+        if auditlog.contains(instance.__class__):
+            model_fields = auditlog.get_model_fields(instance.__class__)
+            object_repr_field = model_fields["object_repr_field"]
+            if object_repr_field:
+                target = getattr(instance, object_repr_field, DEFAULT_OBJECT_REPR)
+        if callable(target):
+            target = target()
+        return smart_str(target)
+    except ObjectDoesNotExist:
+        return DEFAULT_OBJECT_REPR

@@ -45,6 +45,7 @@ from test_app.models import (
     ModelPrimaryKeyModel,
     NoDeleteHistoryModel,
     NullableJSONModel,
+    ObjectReprOverrideModel,
     ProxyModel,
     RelatedModel,
     RelatedModelParent,
@@ -415,6 +416,87 @@ class ModelPrimaryKeyTest(TransactionTestCase):
             pk = obj.key.pk
         self.assertEqual(pk, obj.pk)
         self.assertEqual(pk, key.pk)
+
+
+class BaseObjectReprOverrideTests:
+    object_repr_field = None
+
+    def get_expected_repr(self, instance):
+        raise NotImplementedError
+
+    def setUp(self):
+        auditlog.register(
+            ObjectReprOverrideModel,
+            object_repr_field=self.object_repr_field,
+            m2m_fields=["related"],
+        )
+        self.obj = ObjectReprOverrideModel.objects.create(
+            public_field="public information",
+            sensitive_field="secret information",
+        )
+
+    def tearDown(self):
+        auditlog.unregister(ObjectReprOverrideModel)
+
+    def test_object_repr_uses_override(self):
+        self.assertEqual(
+            self.obj.history.latest().object_repr,
+            self.get_expected_repr(self.obj),
+            msg=f"Failed overriding object_repr with config: {self.object_repr_field}",
+        )
+
+    def test_m2m_changes_dict_uses_object_repr_field(self):
+        second = ObjectReprOverrideModel.objects.create(
+            public_field="second node", sensitive_field="second secret"
+        )
+        self.obj.related.add(second)
+        log_entry = self.obj.history.latest()
+        self.assertEqual(
+            log_entry.changes["related"]["objects"],
+            [self.get_expected_repr(second)],
+            msg=f"Failed M2M objects array with config: {self.object_repr_field}",
+        )
+
+    def test_fk_changes_display_dict_uses_object_repr_field(self):
+        second = ObjectReprOverrideModel.objects.create(
+            public_field="second node", sensitive_field="second secret"
+        )
+        second.parent = self.obj
+        second.save()
+        log_entry = second.history.latest()
+        self.assertEqual(
+            log_entry.changes_display_dict["parent"][1],
+            self.get_expected_repr(self.obj),
+            msg=f"Failed FK changes display dict with config: {self.object_repr_field}",
+        )
+
+
+class NoObjectReprOverrideTest(BaseObjectReprOverrideTests, TestCase):
+    object_repr_field = None
+
+    def get_expected_repr(self, instance):
+        return smart_str(instance)
+
+
+class ObjectReprFromPublicFieldTest(BaseObjectReprOverrideTests, TestCase):
+    object_repr_field = "public_field"
+
+    def get_expected_repr(self, instance):
+        return instance.public_field
+
+
+class ObjectReprFromCallableTest(BaseObjectReprOverrideTests, TestCase):
+    object_repr_field = "some_callable"
+
+    def get_expected_repr(self, instance):
+        return instance.some_callable()
+
+
+class ObjectReprFromMissingFieldTest(BaseObjectReprOverrideTests, TestCase):
+    object_repr_field = "bogus_missing_field"
+
+    def get_expected_repr(self, instance):
+        return DEFAULT_OBJECT_REPR
 
 
 class ProxyModelBase(SimpleModelTest):
@@ -1399,7 +1481,7 @@ class RegisterModelSettingsTest(TestCase):
 
         self.assertTrue(self.test_auditlog.contains(SimpleExcludeModel))
         self.assertTrue(self.test_auditlog.contains(ChoicesFieldModel))
-        self.assertEqual(len(self.test_auditlog.get_models()), 36)
+        self.assertEqual(len(self.test_auditlog.get_models()), 37)
 
     def test_register_models_register_model_with_attrs(self):
         self.test_auditlog._register_models(
