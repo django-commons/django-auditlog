@@ -4,6 +4,7 @@
 
 #### Improvements
 
+- Add a CI check for changelog updates, with a `skip-changelog` label to opt out ([#837](https://github.com/django-commons/django-auditlog/pull/837))
 - Add support for Python 3.14 and Django 6.0
 - Add support for Django 6.1
 - Add German (de) locale ([#831](https://github.com/jazzband/django-auditlog/pull/831))
