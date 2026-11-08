@@ -2,15 +2,24 @@
 
 ## Next Release
 
+#### Fixes
+
+- Nested `set_actor` / `set_extra_data` no longer leak `pre_save` receivers or overwrite the outer context ([#846](https://github.com/django-commons/django-auditlog/issues/846))
+
+## 3.4.2 (2026-11-08)
+
 #### Improvements
 
-- Add support for Python 3.14 and Django 6.0
-- Add German (de) locale ([#831](https://github.com/jazzband/django-auditlog/pull/831))
+- Add support for Python 3.14 and Django 6.0 ([#827](https://github.com/django-commons/django-auditlog/pull/827))
+- Add support for Django 6.1 ([#854](https://github.com/django-commons/django-auditlog/pull/854))
+- Add German (de) locale ([#831](https://github.com/django-commons/django-auditlog/pull/831))
+- Switch from Jazzband to Django Commons and use PyPI Trusted Publishing ([#851](https://github.com/django-commons/django-auditlog/pull/851))
 
 #### Fixes
 
-- Nested `set_actor` / `set_extra_data` no longer leak `pre_save` receivers or overwrite the outer context ([#846](https://github.com/jazzband/django-auditlog/issues/846))
-- `KeyError` when calling `changes_str` on a log entry that tracks many-to-many field changes ([#798](https://github.com/jazzband/django-auditlog/pull/798))
+- Fix `KeyError` in `changes_str` for many-to-many field changes ([#798](https://github.com/django-commons/django-auditlog/pull/798))
+- Fix creation of an unnecessary `auditlog_logentry` table when using a custom log entry model on fresh installs ([#805](https://github.com/django-commons/django-auditlog/pull/805))
+- CI: Update the PyPI publishing action to v1.14.3 ([#858](https://github.com/django-commons/django-auditlog/pull/858))
 
 ## 3.4.1 (2025-12-13)
 

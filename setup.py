@@ -18,11 +18,11 @@ setup(
         "auditlog.management.commands",
         "auditlog.templatetags",
     ],
-    url="https://github.com/jazzband/django-auditlog",
+    url="https://github.com/django-commons/django-auditlog",
     project_urls={
         "Documentation": "https://django-auditlog.readthedocs.io",
-        "Source": "https://github.com/jazzband/django-auditlog",
-        "Tracker": "https://github.com/jazzband/django-auditlog/issues",
+        "Source": "https://github.com/django-commons/django-auditlog",
+        "Tracker": "https://github.com/django-commons/django-auditlog/issues",
     },
     license="MIT",
     author="Jan-Jelle Kester",
@@ -45,6 +45,7 @@ setup(
         "Framework :: Django :: 5.1",
         "Framework :: Django :: 5.2",
         "Framework :: Django :: 6.0",
+        "Framework :: Django :: 6.1",
         "License :: OSI Approved :: MIT License",
     ],
 )
