@@ -9,6 +9,8 @@
 - Add German (de) locale ([#831](https://github.com/jazzband/django-auditlog/pull/831))
 - Switched to trusted publisher release process with Django Commons
 - Switch from Jazzband org to Django Commons
+- Add `pre_m2m_log`/`post_m2m_log` signals, emitted when creating log entries for many-to-many field changes
+- Include `object_pks` (primary keys of the changed related objects) alongside `objects` in many-to-many log entry `changes`
 
 #### Fixes
 
