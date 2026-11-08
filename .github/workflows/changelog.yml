@@ -1,0 +1,32 @@
+name: Changelog
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: changelog-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  changelog:
+    name: Changelog updated
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check changelog
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changes=$(git diff --name-only --diff-filter=AM --break-rewrites --find-renames "$BASE_SHA...$HEAD_SHA")
+          if ! grep -Fxq 'CHANGELOG.md' <<< "$changes"; then
+            echo "::error file=CHANGELOG.md::Update CHANGELOG.md or add the 'skip-changelog' label to skip this check."
+            exit 1
+          fi
