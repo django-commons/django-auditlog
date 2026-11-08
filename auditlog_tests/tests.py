@@ -3217,6 +3217,41 @@ class CustomMaskModelTest(TestCase):
         )
 
 
+class NestedContextManagerTest(TestCase):
+    """Nested set_actor / set_extra_data must restore ContextVar and disconnect receivers."""
+
+    def test_nested_set_actor_does_not_leak_pre_save_receivers(self):
+        before = len(pre_save.receivers)
+        for _n in range(20):
+            with set_actor(None):
+                with set_actor(None):
+                    pass
+        self.assertEqual(len(pre_save.receivers), before)
+
+    def test_nested_set_extra_data_does_not_leak_pre_save_receivers(self):
+        before = len(pre_save.receivers)
+        for _n in range(20):
+            with set_extra_data({}):
+                with set_extra_data({}):
+                    pass
+        self.assertEqual(len(pre_save.receivers), before)
+
+    def test_nested_set_actor_restores_outer_actor(self):
+        outer = get_user_model().objects.create(
+            username="outer_actor", email="outer@example.com"
+        )
+        inner = get_user_model().objects.create(
+            username="inner_actor", email="inner@example.com"
+        )
+        with set_actor(outer):
+            with set_actor(inner):
+                inner_obj = SimpleModel.objects.create(text="inner")
+            outer_obj = SimpleModel.objects.create(text="outer")
+
+        self.assertEqual(inner_obj.history.get().actor, inner)
+        self.assertEqual(outer_obj.history.get().actor, outer)
+
+
 class WithExtraDataMixin(WithActorMixinBase):
     def get_context_data(self):
         return {}

@@ -2,6 +2,10 @@
 
 ## Next Release
 
+#### Fixes
+
+- Nested `set_actor` / `set_extra_data` no longer leak `pre_save` receivers or overwrite the outer context ([#846](https://github.com/django-commons/django-auditlog/issues/846))
+
 ## 3.4.2 (2026-11-08)
 
 #### Improvements

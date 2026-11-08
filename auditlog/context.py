@@ -32,7 +32,7 @@ def call_context_manager(context_data):
     LogEntry = get_logentry_model()
     # Initialize thread local storage
     context_data["signal_duid"] = ("set_actor", time.time())
-    auditlog_value.set(context_data)
+    token = auditlog_value.set(context_data)
 
     # Connect signal for automatic logging
     set_extra_data = partial(
@@ -49,12 +49,11 @@ def call_context_manager(context_data):
     try:
         yield
     finally:
+        pre_save.disconnect(sender=LogEntry, dispatch_uid=context_data["signal_duid"])
         try:
-            auditlog = auditlog_value.get()
+            auditlog_value.reset(token)
         except LookupError:
             pass
-        else:
-            pre_save.disconnect(sender=LogEntry, dispatch_uid=auditlog["signal_duid"])
 
 
 def _set_actor(auditlog, instance, sender):
