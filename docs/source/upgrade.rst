@@ -19,3 +19,11 @@ To avoid this, follow these steps:
 2. Upgrade the package. Your app will now start storing new records as JSON, but the old records will accessible via ``LogEntry.changes_text``.
 3. Use the newly added ``auditlogmigratejson`` command to migrate your records. Run ``django-admin auditlogmigratejson --help`` to get more information.
 4. Once all records are migrated, remove the variables listed above, or set their values to ``False``.
+
+.. note::
+
+    On Oracle the one-step migration previously failed with
+    ``ORA-01451: column to be modified to NULL cannot be modified to NULL``,
+    even on a fresh install. This is fixed, so the one-step migration now runs
+    on Oracle. On older versions you can work around it by running the two-step
+    migration described above.

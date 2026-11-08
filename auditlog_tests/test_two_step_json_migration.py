@@ -1,9 +1,14 @@
+import importlib.util
 import json
+import unittest
 from io import StringIO
 from unittest.mock import patch
 
 from django.conf import settings
 from django.core.management import CommandError, call_command
+from django.db.migrations.loader import MigrationLoader
+from django.db.migrations.state import ProjectState
+from django.db.utils import ConnectionHandler
 from django.test import TestCase, override_settings
 from django.test.utils import skipIf
 from test_app.models import SimpleModel
@@ -196,3 +201,54 @@ class AuditlogMigrateJsonTest(TestCase):
         )
         self.assertEqual(msg, errbuf)
         self.assertIsNone(log_entry.changes)
+
+
+@unittest.skipUnless(
+    importlib.util.find_spec("oracledb") is not None,
+    "oracledb driver is required to build the Oracle schema editor",
+)
+class OracleMigrationSQLTest(TestCase):
+    """Regression test for #757.
+
+    The one-step ``0015`` migration used to alter ``changes`` straight from a
+    ``TextField`` to a ``JSONField(null=True)``. On Oracle an empty string is
+    stored as NULL, so that column is already nullable and the generated
+    ``MODIFY "CHANGES" NULL`` statement fails with ORA-01451. This builds an
+    Oracle schema editor in ``collect_sql`` mode (no live database) and checks
+    the generated DDL for the forwards migration.
+    """
+
+    def _collect_oracle_sql(self):
+        handler = ConnectionHandler(
+            {
+                "default": {
+                    "ENGINE": "django.db.backends.oracle",
+                    "NAME": "auditlog",
+                    "USER": "auditlog",
+                    "PASSWORD": "auditlog",
+                    "HOST": "localhost",
+                    "PORT": "1521",
+                }
+            }
+        )
+        connection = handler["default"]
+        loader = MigrationLoader(None, ignore_no_migrations=True)
+        state = ProjectState()
+        for node in loader.graph.forwards_plan(("auditlog", "0014_logentry_cid")):
+            state = loader.get_migration(*node).mutate_state(state, preserve=True)
+        migration = loader.get_migration("auditlog", "0015_alter_logentry_changes")
+        with connection.schema_editor(collect_sql=True, atomic=False) as editor:
+            new_state = state.clone()
+            for operation in migration.operations:
+                from_state = new_state.clone()
+                operation.state_forwards("auditlog", new_state)
+                operation.database_forwards("auditlog", editor, from_state, new_state)
+            return editor.collected_sql
+
+    @override_settings(AUDITLOG_TWO_STEP_MIGRATION=False)
+    def test_default_migration_does_not_modify_changes_to_null(self):
+        collected_sql = self._collect_oracle_sql()
+        self.assertNotIn(
+            'MODIFY "CHANGES" NULL',
+            "\n".join(collected_sql),
+        )
