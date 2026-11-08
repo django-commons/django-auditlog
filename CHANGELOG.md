@@ -13,6 +13,7 @@
 #### Fixes
 
 - `KeyError` when calling `changes_str` on a log entry that tracks many-to-many field changes ([#798](https://github.com/jazzband/django-auditlog/pull/798))
+- `auditlogmigratejson` skipped log entries when a batch contained entries that could not be converted ([#667](https://github.com/jazzband/django-auditlog/issues/667))
 
 ## 3.4.1 (2025-12-13)
 

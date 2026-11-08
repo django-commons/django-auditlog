@@ -81,12 +81,14 @@ class Command(BaseCommand):
         return False
 
     def get_logs(self):
-        return LogEntry.objects.filter(
-            changes_text__isnull=False, changes__isnull=True
-        ).exclude(changes_text__exact="")
+        return (
+            LogEntry.objects.filter(changes_text__isnull=False, changes__isnull=True)
+            .exclude(changes_text__exact="")
+            .order_by("pk")
+        )
 
     def migrate_using_django(self, batch_size):
-        def _apply_django_migration(_logs) -> int:
+        def _apply_django_migration(_logs) -> tuple[int, int]:
             import json
 
             updated = []
@@ -109,16 +111,24 @@ class Command(BaseCommand):
                         f"{errors}"
                     )
                 )
-            return len(updated)
+            return len(updated), len(errors)
 
         logs = self.get_logs()
 
         if not batch_size:
-            return _apply_django_migration(logs)
+            return _apply_django_migration(logs)[0]
 
+        # Logs that cannot be converted stay in the queryset, so the batches
+        # have to step over them. Otherwise every iteration re-fetches the same
+        # failing logs and the ones behind them are never migrated.
         total_updated = 0
+        offset = 0
         for _ in range(ceil(logs.count() / batch_size)):
-            total_updated += _apply_django_migration(self.get_logs()[:batch_size])
+            updated, errored = _apply_django_migration(
+                self.get_logs()[offset:][:batch_size]
+            )
+            total_updated += updated
+            offset += errored
         return total_updated
 
     def migrate_using_sql(self, database):
