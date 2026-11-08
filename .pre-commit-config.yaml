@@ -14,7 +14,7 @@ repos:
       - id: flake8
         args: ["--max-line-length", "110"]
   - repo: https://github.com/PyCQA/isort
-    rev: 9.0.0b2
+    rev: 9.0.1
     hooks:
       - id: isort
   - repo: https://github.com/asottile/pyupgrade
@@ -23,7 +23,7 @@ repos:
     -   id: pyupgrade
         args: [--py310-plus]
   - repo: https://github.com/adamchainz/django-upgrade
-    rev: 1.31.1
+    rev: 1.32.0
     hooks:
     - id: django-upgrade
       args: [--target-version, "4.2"]
