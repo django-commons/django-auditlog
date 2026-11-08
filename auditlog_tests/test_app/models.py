@@ -479,6 +479,7 @@ class CustomMaskModel(models.Model):
 class NullableFieldModel(models.Model):
     time = models.TimeField(null=True, blank=True)
     optional_text = models.CharField(max_length=100, null=True, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=5, null=True, blank=True)
 
     history = AuditlogHistoryField(delete_related=True)
 
