@@ -723,6 +723,34 @@ class MiddlewareTest(TestCase):
 
                 self.assertEqual(self.middleware._get_actor(request), actor)
 
+    def test_lazy_actor_resolution_with_deferred_auth(self):
+        """
+        When authentication is deferred (e.g. DRF token auth), request.user
+        may still be AnonymousUser at the time the middleware calls
+        get_extra_data(). Using SimpleLazyObject ensures the actor is resolved
+        at model-save time, when request.user has been updated.
+        """
+        request = self.factory.get("/")
+        request.user = AnonymousUser()
+
+        def get_response(req):
+            # Simulate deferred auth setting the real user after middleware ran
+            req.user = self.user
+            SimpleModel.objects.create(text="I am not difficult.")
+            return self.response_mock
+
+        self.get_response_mock.side_effect = get_response
+
+        self.middleware(request)
+
+        history = SimpleModel.objects.last().history.get(action=LogEntry.Action.CREATE)
+        self.assertEqual(
+            history.actor,
+            self.user,
+            msg="Actor should be resolved lazily to the authenticated user, "
+            "not eagerly to None (AnonymousUser)",
+        )
+
 
 class SimpleIncludeModelTest(TestCase):
     """Log only changes in include_fields"""
