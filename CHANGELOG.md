@@ -2,6 +2,10 @@
 
 ## Next Release
 
+#### Improvements
+
+- Make `AuditlogMiddleware` sync and async capable so it no longer forces an async middleware chain to run synchronously ([#639](https://github.com/django-commons/django-auditlog/issues/639))
+
 ## 3.4.2 (2026-11-08)
 
 #### Improvements

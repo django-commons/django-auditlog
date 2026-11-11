@@ -500,6 +500,13 @@ project's configuration file::
 
 It is recommended to keep all middleware that alters the request loaded before Auditlog's middleware.
 
+The middleware supports both WSGI and ASGI. It is both sync and async capable, so it does not force Django to adapt
+an asynchronous middleware chain to synchronous mode when running under ASGI.
+
+.. versionchanged:: 3.5.0
+
+    ``AuditlogMiddleware`` is now async capable.
+
 .. warning::
 
     Please keep in mind that every object change in a request that gets logged automatically will have the current request's

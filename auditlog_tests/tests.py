@@ -8,6 +8,7 @@ from unittest import mock, skipIf
 from unittest.mock import patch
 
 import freezegun
+from asgiref.sync import iscoroutinefunction
 from dateutil.tz import gettz
 from django import VERSION as DJANGO_VERSION
 from django.apps import apps
@@ -28,6 +29,7 @@ from django.urls import resolve, reverse
 from django.utils import dateformat, formats
 from django.utils import timezone as django_timezone
 from django.utils.encoding import smart_str
+from django.utils.functional import SimpleLazyObject
 from django.utils.translation import gettext_lazy as _
 from test_app.fixtures.custom_get_cid import get_cid as custom_get_cid
 from test_app.models import (
@@ -722,6 +724,139 @@ class MiddlewareTest(TestCase):
                 request.user = user
 
                 self.assertEqual(self.middleware._get_actor(request), actor)
+
+
+class AsyncMiddlewareTest(TestCase):
+    """
+    Test the middleware when it is part of an asynchronous (ASGI) middleware chain.
+    """
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username="test", email="test@example.com", password="top_secret"
+        )
+
+    def test_capabilities(self):
+        self.assertTrue(AuditlogMiddleware.sync_capable)
+        self.assertTrue(AuditlogMiddleware.async_capable)
+
+    def test_sync_chain_is_not_coroutine_function(self):
+        middleware = AuditlogMiddleware(get_response=mock.Mock())
+
+        self.assertFalse(iscoroutinefunction(middleware))
+
+    def test_async_chain_is_coroutine_function(self):
+        middleware = AuditlogMiddleware(get_response=mock.AsyncMock())
+
+        self.assertTrue(iscoroutinefunction(middleware))
+
+    async def test_request_sets_actor(self):
+        """The actor and remote address are logged for changes made during an async request."""
+        request = self.factory.get("/", HTTP_X_FORWARDED_FOR="127.0.0.2")
+        request.user = self.user
+        created = []
+
+        async def get_response(request):
+            self.assertTrue(pre_save.has_listeners(LogEntry))
+            created.append(await SimpleModel.objects.acreate(text="Async request"))
+            return mock.sentinel.response
+
+        middleware = AuditlogMiddleware(get_response=get_response)
+
+        response = await middleware(request)
+
+        self.assertIs(response, mock.sentinel.response)
+        self.assertFalse(pre_save.has_listeners(LogEntry))
+        entry = await created[0].history.aget()
+        self.assertEqual(entry.actor_id, self.user.pk)
+        self.assertEqual(entry.remote_addr, "127.0.0.2")
+
+    async def test_request_anonymous(self):
+        """No actor will be logged when a user is not logged in."""
+        request = self.factory.get("/")
+        request.user = AnonymousUser()
+
+        async def get_response(request):
+            return await SimpleModel.objects.acreate(text="Async request")
+
+        middleware = AuditlogMiddleware(get_response=get_response)
+
+        obj = await middleware(request)
+
+        self.assertFalse(pre_save.has_listeners(LogEntry))
+        entry = await obj.history.aget()
+        self.assertIsNone(entry.actor_id)
+        self.assertEqual(entry.remote_addr, "127.0.0.1")
+
+    async def test_lazy_request_user(self):
+        """A lazy ``request.user`` is resolved without raising ``SynchronousOnlyOperation``."""
+        request = self.factory.get("/")
+        request.user = SimpleLazyObject(lambda: User.objects.get(pk=self.user.pk))
+
+        async def get_response(request):
+            return await SimpleModel.objects.acreate(text="Async request")
+
+        middleware = AuditlogMiddleware(get_response=get_response)
+
+        obj = await middleware(request)
+
+        entry = await obj.history.aget()
+        self.assertEqual(entry.actor_id, self.user.pk)
+
+    async def test_exception(self):
+        """The signal will be disconnected when an exception is raised."""
+        request = self.factory.get("/")
+        request.user = self.user
+
+        SomeException = type("SomeException", (Exception,), {})
+
+        async def get_response(request):
+            raise SomeException
+
+        middleware = AuditlogMiddleware(get_response=get_response)
+
+        with self.assertRaises(SomeException):
+            await middleware(request)
+
+        self.assertFalse(pre_save.has_listeners(LogEntry))
+
+    async def test_cid(self):
+        header = str(settings.AUDITLOG_CID_HEADER).lstrip("HTTP_").replace("_", "-")
+        header_meta = "HTTP_" + header.upper().replace("-", "_")
+        request = self.factory.get("/", **{header_meta: "random_CID"})
+
+        async def get_response(request):
+            return await SimpleModel.objects.acreate(text="Async request")
+
+        middleware = AuditlogMiddleware(get_response=get_response)
+
+        obj = await middleware(request)
+
+        entry = await obj.history.aget()
+        self.assertEqual(entry.cid, "random_CID")
+
+    async def test_get_extra_data_override(self):
+        """Overrides of ``get_extra_data`` are honoured for async requests."""
+        request = self.factory.get("/")
+        request.user = self.user
+
+        class CustomMiddleware(AuditlogMiddleware):
+            def get_extra_data(self, request):
+                context_data = super().get_extra_data(request)
+                context_data["remote_addr"] = "10.0.0.1"
+                return context_data
+
+        async def get_response(request):
+            return await SimpleModel.objects.acreate(text="Async request")
+
+        middleware = CustomMiddleware(get_response=get_response)
+
+        obj = await middleware(request)
+
+        entry = await obj.history.aget()
+        self.assertEqual(entry.remote_addr, "10.0.0.1")
+        self.assertEqual(entry.actor_id, self.user.pk)
 
 
 class SimpleIncludeModelTest(TestCase):
