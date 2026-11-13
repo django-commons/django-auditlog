@@ -2924,6 +2924,18 @@ class SignalTests(TestCase):
             obj.delete()
         self.assertEqual(self.my_post_log_data["my_error"], error_delete)
 
+    def test_nested_context_receiver_cleanup(self):
+        before = len(pre_save.receivers)
+        for i in range(5):
+            with set_actor(None), set_actor(None):
+                pass
+        self.assertEqual(len(pre_save.receivers), before)
+
+        for i in range(5):
+            with set_extra_data({}), set_extra_data({}):
+                pass
+        self.assertEqual(len(pre_save.receivers), before)
+
 
 @override_settings(AUDITLOG_DISABLE_ON_RAW_SAVE=True)
 class DisableTest(TestCase):
