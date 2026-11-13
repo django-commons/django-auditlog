@@ -648,6 +648,26 @@ class MiddlewareTest(TestCase):
                     self.middleware._get_remote_addr(request), expected_remote_addr
                 )
 
+    def test_get_remote_addr_num_proxies(self):
+        tests = [  # (x_forwarded_for, expected_remote_addr)
+            ("1.2.3.4,1.1.1.1,2.2.2.2", "1.2.3.4"),
+            ("9.9.9.9,1.2.3.4,1.1.1.1,2.2.2.2", "1.2.3.4"),
+            ("1.1.1.1,2.2.2.2", "1.1.1.1"),
+        ]
+        with override_settings(AUDITLOG_NUM_PROXIES=2):
+            for xff, expected_remote_addr in tests:
+                with self.subTest(xff=xff):
+                    request = self.factory.get("/", HTTP_X_FORWARDED_FOR=xff)
+                    self.assertEqual(
+                        self.middleware._get_remote_addr(request),
+                        expected_remote_addr,
+                    )
+
+    def test_get_remote_addr_num_proxies_default(self):
+        """Without AUDITLOG_NUM_PROXIES the left-most address is still used."""
+        request = self.factory.get("/", HTTP_X_FORWARDED_FOR="9.9.9.9, 1.2.3.4")
+        self.assertEqual(self.middleware._get_remote_addr(request), "9.9.9.9")
+
     def test_get_remote_port(self):
         headers = {
             "HTTP_X_FORWARDED_PORT": "12345",

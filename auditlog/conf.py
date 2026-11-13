@@ -51,6 +51,11 @@ settings.AUDITLOG_DISABLE_REMOTE_ADDR = getattr(
     settings, "AUDITLOG_DISABLE_REMOTE_ADDR", False
 )
 
+# Number of trusted proxies in front of the application, used to find the client
+# address in the X-Forwarded-For header. None keeps the previous behaviour
+# (use the left-most address).
+settings.AUDITLOG_NUM_PROXIES = getattr(settings, "AUDITLOG_NUM_PROXIES", None)
+
 # Number of characters at which changes_display_dict property should be shown
 settings.AUDITLOG_CHANGE_DISPLAY_TRUNCATE_LENGTH = getattr(
     settings, "AUDITLOG_CHANGE_DISPLAY_TRUNCATE_LENGTH", 140

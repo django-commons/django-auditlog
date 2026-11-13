@@ -266,6 +266,22 @@ It will be considered when ``AUDITLOG_DISABLE_REMOTE_ADDR`` is `True`.
 
 .. versionadded:: 3.0.0
 
+**AUDITLOG_NUM_PROXIES**
+
+When using "AuditlogMiddleware" behind one or more trusted proxies or load
+balancers, the client address is read from the ``X-Forwarded-For`` header.
+By default (``None``), the left-most address of the header is used. That value
+can be supplied by the client, so it can be spoofed.
+
+Set this to the number of trusted proxies in front of your application. The
+client address is then taken that many entries from the right of the header.
+
+.. code-block:: python
+
+    AUDITLOG_NUM_PROXIES = 2
+
+.. versionadded:: 3.5.0
+
 **AUDITLOG_MASK_TRACKING_FIELDS**
 
 You can use this setting to mask specific field values in all tracked models
