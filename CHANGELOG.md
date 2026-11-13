@@ -2,6 +2,10 @@
 
 ## Next Release
 
+#### Improvements
+
+- Add `AUDITLOG_NUM_PROXIES` setting to read the client address from `X-Forwarded-For` when running behind trusted proxies
+
 ## 3.4.2 (2026-11-08)
 
 #### Improvements

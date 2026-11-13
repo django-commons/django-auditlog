@@ -26,7 +26,13 @@ class AuditlogMiddleware:
             return request.META.get("REMOTE_ADDR")
 
         # In case of proxy, set 'original' address
-        remote_addr: str = request.headers.get("X-Forwarded-For").split(",")[0]
+        addrs = [a.strip() for a in request.headers.get("X-Forwarded-For").split(",")]
+        num_proxies = settings.AUDITLOG_NUM_PROXIES
+        if num_proxies is None:
+            remote_addr: str = addrs[0]
+        else:
+            # Count from the right: proxies we trust append their client's address
+            remote_addr = addrs[-min(num_proxies + 1, len(addrs))]
 
         # Remove port number from remote_addr
         if "." in remote_addr and ":" in remote_addr:  # IPv4 with port (`x.x.x.x:x`)
